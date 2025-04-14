@@ -5,73 +5,133 @@
   <title>Greatea Inventory Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- ✅ Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h1 class="text-center mb-5">Greatea Inventory Management System</h1>
+    <h1 class="text-center mb-4">📦 Greatea Inventory Management System</h1>
 
-    <!-- ✅ Inventory Summary -->
-    <div id="summary" class="mb-4"></div>
-
-    <!-- ✅ Chart Canvas -->
+    <!-- Inventory Summary and Chart -->
+    <div id="summary"></div>
     <div class="my-4">
       <canvas id="inventory-chart" height="100"></canvas>
     </div>
 
-    <div class="row mb-5">
-      <!-- Supplies Column -->
+    <div class="row">
+      <!-- Supplies Section -->
       <div class="col-md-6">
-        <h3 class="mb-3">📦 Supplies</h3>
-        <div id="supply-list" class="card-list"></div>
-
-        <h5 class="mt-4">Add New Supply</h5>
-        <form id="supply-form" class="row g-2">
-          <div class="col-md-6">
-            <input type="text" class="form-control" placeholder="Name" id="name" required />
-          </div>
-          <div class="col-md-6">
-            <input type="text" class="form-control" placeholder="Category" id="category" />
-          </div>
-          <div class="col-md-6">
-            <input type="date" class="form-control" id="expiry" />
-          </div>
-          <div class="col-md-3">
-            <input type="number" class="form-control" placeholder="Quantity" id="quantity" />
-          </div>
-          <div class="col-md-3">
-            <input type="number" class="form-control" step="0.01" placeholder="Cost" id="cost" />
-          </div>
-          <div class="col-12">
-            <button type="submit" class="btn btn-primary w-100">Add Supply</button>
-          </div>
+        <h3>Supplies</h3>
+        <div id="supply-list"></div>
+        <form id="supply-form" class="row g-2 mt-3">
+          <div class="col-md-6"><input type="text" class="form-control" placeholder="Name" id="name" required></div>
+          <div class="col-md-6"><input type="text" class="form-control" placeholder="Category" id="category"></div>
+          <div class="col-md-6"><input type="date" class="form-control" id="expiry"></div>
+          <div class="col-md-3"><input type="number" class="form-control" placeholder="Quantity" id="quantity"></div>
+          <div class="col-md-3"><input type="number" class="form-control" step="0.01" placeholder="Cost" id="cost"></div>
+          <div class="col-12"><button type="submit" class="btn btn-primary w-100">Add Supply</button></div>
         </form>
       </div>
 
-      <!-- Suppliers Column -->
+      <!-- Suppliers Section -->
       <div class="col-md-6">
-        <h3 class="mb-3">📋 Suppliers</h3>
-        <div id="supplier-list" class="card-list"></div>
-
-        <h5 class="mt-4">Add New Supplier</h5>
-        <form id="supplier-form" class="row g-2">
-          <div class="col-md-6">
-            <input type="text" class="form-control" placeholder="Name" id="supplier-name" required />
-          </div>
-          <div class="col-md-6">
-            <input type="text" class="form-control" placeholder="Contact" id="supplier-contact" />
-          </div>
-          <div class="col-md-6">
-            <input type="number" class="form-control" placeholder="Lead Time (days)" id="supplier-lead" />
-          </div>
-          <div class="col-12">
-            <button type="submit" class="btn btn-success w-100">Add Supplier</button>
-          </div>
+        <h3>Suppliers</h3>
+        <div id="supplier-list"></div>
+        <form id="supplier-form" class="row g-2 mt-3">
+          <div class="col-md-6"><input type="text" class="form-control" placeholder="Name" id="supplier-name" required></div>
+          <div class="col-md-6"><input type="text" class="form-control" placeholder="Contact" id="supplier-contact"></div>
+          <div class="col-md-6"><input type="number" class="form-control" placeholder="Lead Time (days)" id="supplier-lead"></div>
+          <div class="col-12"><button type="submit" class="btn btn-success w-100">Add Supplier</button></div>
         </form>
       </div>
     </div>
 
-    <footer class="text-center text-muted pt-4 border-top">
+    <hr class="my-5">
+
+    <!-- Usage Records Section -->
+    <h3>Usage Records</h3>
+    <div id="usage-list"></div>
+    <form id="usage-form" class="row g-2 mt-3">
+      <div class="col-md-4"><input type="date" class="form-control" id="usage-date" required></div>
+      <div class="col-md-4"><input type="number" class="form-control" placeholder="Supply ID" id="usage-supply-id"></div>
+      <div class="col-md-2"><input type="number" class="form-control" placeholder="Quantity" id="usage-qty"></div>
+      <div class="col-md-2"><input type="text" class="form-control" placeholder="Location" id="usage-location"></div>
+      <div class="col-12"><button type="submit" class="btn btn-secondary w-100">Add Usage</button></div>
+    </form>
+
+    <hr class="my-5">
+
+    <!-- Expenses Section -->
+    <h3>Expenses</h3>
+    <div id="expense-list"></div>
+    <form id="expense-form" class="row g-2 mt-3">
+      <div class="col-md-4"><input type="date" class="form-control" id="expense-date" required></div>
+      <div class="col-md-4"><input type="text" class="form-control" placeholder="Category" id="expense-category"></div>
+      <div class="col-md-4"><input type="number" class="form-control" placeholder="Amount" id="expense-amount"></div>
+      <div class="col-12"><button type="submit" class="btn btn-warning w-100">Add Expense</button></div>
+    </form>
+    <div class="my-4">
+      <canvas id="expense-chart" height="100"></canvas>
+    </div>
+
+    <hr class="my-5">
+
+    <!-- Supply Orders Section -->
+    <h3>Supply Orders</h3>
+    <div id="order-list"></div>
+    <form id="order-form" class="row g-2 mt-3">
+      <div class="col-md-3"><input type="date" class="form-control" id="order-date" required></div>
+      <div class="col-md-3"><input type="number" class="form-control" placeholder="Supplier ID" id="order-supplier-id"></div>
+      <div class="col-md-3"><input type="number" class="form-control" placeholder="Supply ID" id="order-supply-id"></div>
+      <div class="col-md-3"><input type="number" class="form-control" placeholder="Quantity" id="order-qty"></div>
+      <div class="col-md-4"><input type="number" class="form-control" placeholder="Total Cost" id="order-cost"></div>
+      <div class="col-12"><button type="submit" class="btn btn-dark w-100">Add Supply Order</button></div>
+    </form>
+
+    <hr class="my-5">
+
+    <!-- Store Stock Section -->
+    <h3>Store Stock</h3>
+    <div id="stock-list"></div>
+    <form id="stock-form" class="row g-2 mt-3">
+      <div class="col-md-4"><input type="number" class="form-control" placeholder="Supply ID" id="stock-supply-id"></div>
+      <div class="col-md-4"><input type="number" class="form-control" placeholder="Quantity" id="stock-qty"></div>
+      <div class="col-md-4"><input type="datetime-local" class="form-control" id="stock-date"></div>
+      <div class="col-12"><button type="submit" class="btn btn-info w-100">Update Stock</button></div>
+    </form>
+
+    <hr class="my-5">
+
+    <!-- Restock Requests Section -->
+    <h3>Restock Requests</h3>
+    <div id="restock-list"></div>
+    <form id="restock-form" class="row g-2 mt-3">
+      <div class="col-md-4"><input type="date" class="form-control" id="restock-date"></div>
+      <div class="col-md-3"><input type="number" class="form-control" placeholder="Supply ID" id="restock-supply-id"></div>
+      <div class="col-md-3"><input type="number" class="form-control" placeholder="Quantity" id="restock-qty"></div>
+      <div class="col-md-2">
+        <select class="form-control" id="restock-type">
+          <option>Transfer from Inventory</option>
+          <option>Purchase from Supplier</option>
+        </select>
+      </div>
+      <div class="col-12"><button type="submit" class="btn btn-outline-secondary w-100">Add Restock Request</button></div>
+    </form>
+
+    <hr class="my-5">
+
+    <!-- Market Purchases Section -->
+    <h3>Market Purchases</h3>
+    <div id="purchase-list"></div>
+    <form id="purchase-form" class="row g-2 mt-3">
+      <div class="col-md-3"><input type="date" class="form-control" id="purchase-date"></div>
+      <div class="col-md-3"><input type="text" class="form-control" placeholder="Item Name" id="purchase-item"></div>
+      <div class="col-md-2"><input type="number" class="form-control" placeholder="Quantity" id="purchase-qty"></div>
+      <div class="col-md-2"><input type="number" class="form-control" placeholder="Cost" id="purchase-cost"></div>
+      <div class="col-md-2"><input type="text" class="form-control" placeholder="Category" id="purchase-category"></div>
+      <div class="col-12"><button type="submit" class="btn btn-outline-primary w-100">Add Purchase</button></div>
+    </form>
+
+    <footer class="text-center mt-5 text-muted border-top pt-3">
       <p class="mb-0">© 2025 Greatea Inventory System | Made by Andrew and Team</p>
     </footer>
   </div>
