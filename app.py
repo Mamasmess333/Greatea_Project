@@ -1,18 +1,19 @@
-from flask_cors import CORS               # ✅ STEP 1: Add this
+from flask_cors import CORS
 from flask import Flask, request, jsonify
 from config import Config
-from models import db, Supplies
+from models import db, Supplies, Suppliers
 from datetime import datetime
 
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app)                                 # ✅ STEP 2: Add this directly after app init
+CORS(app)
 db.init_app(app)
 
 @app.route('/')
 def home():
     return "Welcome to Greatea Inventory API"
 
+# -------------------- SUPPLIES CRUD --------------------
 @app.route('/supplies', methods=['GET'])
 def get_supplies():
     supplies = Supplies.query.all()
@@ -56,7 +57,48 @@ def delete_supply(id):
     db.session.commit()
     return '', 204
 
+# -------------------- SUPPLIERS CRUD --------------------
+@app.route('/suppliers', methods=['GET'])
+def get_suppliers():
+    suppliers = Suppliers.query.all()
+    return jsonify([s.to_dict() for s in suppliers])
+
+@app.route('/suppliers/<int:id>', methods=['GET'])
+def get_supplier(id):
+    supplier = Suppliers.query.get_or_404(id)
+    return jsonify(supplier.to_dict())
+
+@app.route('/suppliers', methods=['POST'])
+def add_supplier():
+    data = request.json
+    new_supplier = Suppliers(
+        Name=data['Name'],
+        Contact=data.get('Contact'),
+        Lead_Time=data.get('Lead_Time')
+    )
+    db.session.add(new_supplier)
+    db.session.commit()
+    return jsonify(new_supplier.to_dict()), 201
+
+@app.route('/suppliers/<int:id>', methods=['PUT'])
+def update_supplier(id):
+    supplier = Suppliers.query.get_or_404(id)
+    data = request.json
+    supplier.Name = data.get('Name', supplier.Name)
+    supplier.Contact = data.get('Contact', supplier.Contact)
+    supplier.Lead_Time = data.get('Lead_Time', supplier.Lead_Time)
+    db.session.commit()
+    return jsonify(supplier.to_dict())
+
+@app.route('/suppliers/<int:id>', methods=['DELETE'])
+def delete_supplier(id):
+    supplier = Suppliers.query.get_or_404(id)
+    db.session.delete(supplier)
+    db.session.commit()
+    return '', 204
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
+
