@@ -1,8 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
 
 db = SQLAlchemy()
 
-# Supplies Table
+# -------------------- Supplies --------------------
 class Supplies(db.Model):
     __tablename__ = 'Supplies'
     Supply_ID = db.Column(db.Integer, primary_key=True)
@@ -22,7 +23,7 @@ class Supplies(db.Model):
             'Cost_Per_Unit': self.Cost_Per_Unit
         }
 
-# Suppliers Table
+# -------------------- Suppliers --------------------
 class Suppliers(db.Model):
     __tablename__ = 'Suppliers'
     Supplier_ID = db.Column(db.Integer, primary_key=True)
@@ -38,7 +39,41 @@ class Suppliers(db.Model):
             'Lead_Time': self.Lead_Time
         }
 
-# Supply Orders Table
+# -------------------- Usage Records --------------------
+class UsageRecords(db.Model):
+    __tablename__ = 'Usage_Records'
+    Usage_ID = db.Column(db.Integer, primary_key=True)
+    Date = db.Column(db.Date)
+    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID'))
+    Quantity_Used = db.Column(db.Float)
+    Location = db.Column(db.String(100))
+
+    def to_dict(self):
+        return {
+            'Usage_ID': self.Usage_ID,
+            'Date': self.Date.isoformat() if self.Date else None,
+            'Supply_ID': self.Supply_ID,
+            'Quantity_Used': self.Quantity_Used,
+            'Location': self.Location
+        }
+
+# -------------------- Expenses --------------------
+class Expenses(db.Model):
+    __tablename__ = 'Expenses'
+    Expense_ID = db.Column(db.Integer, primary_key=True)
+    Date = db.Column(db.Date)
+    Category = db.Column(db.String(50))
+    Amount = db.Column(db.Float)
+
+    def to_dict(self):
+        return {
+            'Expense_ID': self.Expense_ID,
+            'Date': self.Date.isoformat() if self.Date else None,
+            'Category': self.Category,
+            'Amount': self.Amount
+        }
+
+# -------------------- Supply Orders --------------------
 class SupplyOrders(db.Model):
     __tablename__ = 'Supply_Orders'
     Order_ID = db.Column(db.Integer, primary_key=True)
@@ -58,41 +93,7 @@ class SupplyOrders(db.Model):
             'Total_Cost': self.Total_Cost
         }
 
-# Usage Records Table
-class UsageRecords(db.Model):
-    __tablename__ = 'Usage_Records'
-    Usage_ID = db.Column(db.Integer, primary_key=True)
-    Date = db.Column(db.Date)
-    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID'))
-    Quantity_Used = db.Column(db.Float)
-    Location = db.Column(db.String(100))
-
-    def to_dict(self):
-        return {
-            'Usage_ID': self.Usage_ID,
-            'Date': self.Date.isoformat() if self.Date else None,
-            'Supply_ID': self.Supply_ID,
-            'Quantity_Used': self.Quantity_Used,
-            'Location': self.Location
-        }
-
-# Expenses Table
-class Expenses(db.Model):
-    __tablename__ = 'Expenses'
-    Expense_ID = db.Column(db.Integer, primary_key=True)
-    Date = db.Column(db.Date)
-    Category = db.Column(db.String(50))
-    Amount = db.Column(db.Float)
-
-    def to_dict(self):
-        return {
-            'Expense_ID': self.Expense_ID,
-            'Date': self.Date.isoformat() if self.Date else None,
-            'Category': self.Category,
-            'Amount': self.Amount
-        }
-
-# Store Stock Table
+# -------------------- Store Stock --------------------
 class StoreStock(db.Model):
     __tablename__ = 'Store_Stock'
     Stock_ID = db.Column(db.Integer, primary_key=True)
@@ -108,7 +109,7 @@ class StoreStock(db.Model):
             'Last_Updated': self.Last_Updated.isoformat() if self.Last_Updated else None
         }
 
-# Restock Requests Table
+# -------------------- Restock Requests --------------------
 class RestockRequests(db.Model):
     __tablename__ = 'Restock_Requests'
     Request_ID = db.Column(db.Integer, primary_key=True)
@@ -126,7 +127,7 @@ class RestockRequests(db.Model):
             'Request_Type': self.Request_Type
         }
 
-# Market Purchases Table
+# -------------------- Market Purchases --------------------
 class MarketPurchases(db.Model):
     __tablename__ = 'Market_Purchases'
     Purchase_ID = db.Column(db.Integer, primary_key=True)
