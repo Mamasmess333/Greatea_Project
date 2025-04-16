@@ -3,7 +3,7 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-# -------------------- Supplies --------------------
+# Supplies Table
 class Supplies(db.Model):
     __tablename__ = 'Supplies'
     Supply_ID = db.Column(db.Integer, primary_key=True)
@@ -12,6 +12,12 @@ class Supplies(db.Model):
     Expiry_Date = db.Column(db.Date)
     Total_Quantity = db.Column(db.Float)
     Cost_Per_Unit = db.Column(db.Float)
+    
+    # Define relationships
+    supply_orders = db.relationship('SupplyOrders', backref='supply', lazy=True, cascade="all, delete-orphan")
+    usage_records = db.relationship('UsageRecords', backref='supply', lazy=True, cascade="all, delete-orphan")
+    store_stock = db.relationship('StoreStock', backref='supply', lazy=True, cascade="all, delete-orphan")
+    restock_requests = db.relationship('RestockRequests', backref='supply', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -23,13 +29,16 @@ class Supplies(db.Model):
             'Cost_Per_Unit': self.Cost_Per_Unit
         }
 
-# -------------------- Suppliers --------------------
+# Suppliers Table
 class Suppliers(db.Model):
     __tablename__ = 'Suppliers'
     Supplier_ID = db.Column(db.Integer, primary_key=True)
     Name = db.Column(db.String(100), nullable=False)
     Contact = db.Column(db.String(100))
     Lead_Time = db.Column(db.Integer)
+    
+    # Define relationships
+    supply_orders = db.relationship('SupplyOrders', backref='supplier', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -39,12 +48,34 @@ class Suppliers(db.Model):
             'Lead_Time': self.Lead_Time
         }
 
-# -------------------- Usage Records --------------------
+# Supply Orders Table
+class SupplyOrders(db.Model):
+    __tablename__ = 'Supply_Orders'
+    Order_ID = db.Column(db.Integer, primary_key=True)
+    Date = db.Column(db.Date, default=datetime.now().date())
+    Supplier_ID = db.Column(db.Integer, db.ForeignKey('Suppliers.Supplier_ID', ondelete='CASCADE'))
+    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID', ondelete='CASCADE'))
+    Quantity_Received = db.Column(db.Float)
+    Total_Cost = db.Column(db.Float)
+
+    def to_dict(self):
+        return {
+            'Order_ID': self.Order_ID,
+            'Date': self.Date.isoformat() if self.Date else None,
+            'Supplier_ID': self.Supplier_ID,
+            'Supply_ID': self.Supply_ID,
+            'Quantity_Received': self.Quantity_Received,
+            'Total_Cost': self.Total_Cost,
+            'Supplier_Name': self.supplier.Name if self.supplier else None,
+            'Supply_Name': self.supply.Name if self.supply else None
+        }
+
+# Usage Records Table
 class UsageRecords(db.Model):
     __tablename__ = 'Usage_Records'
     Usage_ID = db.Column(db.Integer, primary_key=True)
-    Date = db.Column(db.Date)
-    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID'))
+    Date = db.Column(db.Date, default=datetime.now().date())
+    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID', ondelete='CASCADE'))
     Quantity_Used = db.Column(db.Float)
     Location = db.Column(db.String(100))
 
@@ -54,14 +85,15 @@ class UsageRecords(db.Model):
             'Date': self.Date.isoformat() if self.Date else None,
             'Supply_ID': self.Supply_ID,
             'Quantity_Used': self.Quantity_Used,
-            'Location': self.Location
+            'Location': self.Location,
+            'Supply_Name': self.supply.Name if self.supply else None
         }
 
-# -------------------- Expenses --------------------
+# Expenses Table
 class Expenses(db.Model):
     __tablename__ = 'Expenses'
     Expense_ID = db.Column(db.Integer, primary_key=True)
-    Date = db.Column(db.Date)
+    Date = db.Column(db.Date, default=datetime.now().date())
     Category = db.Column(db.String(50))
     Amount = db.Column(db.Float)
 
@@ -73,48 +105,29 @@ class Expenses(db.Model):
             'Amount': self.Amount
         }
 
-# -------------------- Supply Orders --------------------
-class SupplyOrders(db.Model):
-    __tablename__ = 'Supply_Orders'
-    Order_ID = db.Column(db.Integer, primary_key=True)
-    Date = db.Column(db.Date)
-    Supplier_ID = db.Column(db.Integer, db.ForeignKey('Suppliers.Supplier_ID'))
-    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID'))
-    Quantity_Received = db.Column(db.Float)
-    Total_Cost = db.Column(db.Float)
-
-    def to_dict(self):
-        return {
-            'Order_ID': self.Order_ID,
-            'Date': self.Date.isoformat() if self.Date else None,
-            'Supplier_ID': self.Supplier_ID,
-            'Supply_ID': self.Supply_ID,
-            'Quantity_Received': self.Quantity_Received,
-            'Total_Cost': self.Total_Cost
-        }
-
-# -------------------- Store Stock --------------------
+# Store Stock Table
 class StoreStock(db.Model):
     __tablename__ = 'Store_Stock'
     Stock_ID = db.Column(db.Integer, primary_key=True)
-    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID'))
+    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID', ondelete='CASCADE'))
     Quantity_Available = db.Column(db.Float)
-    Last_Updated = db.Column(db.DateTime)
+    Last_Updated = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
         return {
             'Stock_ID': self.Stock_ID,
             'Supply_ID': self.Supply_ID,
             'Quantity_Available': self.Quantity_Available,
-            'Last_Updated': self.Last_Updated.isoformat() if self.Last_Updated else None
+            'Last_Updated': self.Last_Updated.isoformat() if self.Last_Updated else None,
+            'Supply_Name': self.supply.Name if self.supply else None
         }
 
-# -------------------- Restock Requests --------------------
+# Restock Requests Table
 class RestockRequests(db.Model):
     __tablename__ = 'Restock_Requests'
     Request_ID = db.Column(db.Integer, primary_key=True)
-    Date = db.Column(db.Date)
-    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID'))
+    Date = db.Column(db.Date, default=datetime.now().date())
+    Supply_ID = db.Column(db.Integer, db.ForeignKey('Supplies.Supply_ID', ondelete='CASCADE'))
     Quantity_Requested = db.Column(db.Float)
     Request_Type = db.Column(db.Enum('Transfer from Inventory', 'Purchase from Supplier'))
 
@@ -124,14 +137,15 @@ class RestockRequests(db.Model):
             'Date': self.Date.isoformat() if self.Date else None,
             'Supply_ID': self.Supply_ID,
             'Quantity_Requested': self.Quantity_Requested,
-            'Request_Type': self.Request_Type
+            'Request_Type': self.Request_Type,
+            'Supply_Name': self.supply.Name if self.supply else None
         }
 
-# -------------------- Market Purchases --------------------
+# Market Purchases Table
 class MarketPurchases(db.Model):
     __tablename__ = 'Market_Purchases'
     Purchase_ID = db.Column(db.Integer, primary_key=True)
-    Date = db.Column(db.Date)
+    Date = db.Column(db.Date, default=datetime.now().date())
     Item_Name = db.Column(db.String(100))
     Quantity = db.Column(db.Float)
     Cost = db.Column(db.Float)
