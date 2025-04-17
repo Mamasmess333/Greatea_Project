@@ -302,7 +302,7 @@ def get_spending_trends():
         category_name = category[0] or "Uncategorized"
         
         monthly_totals = db.session.query(
-            func.strftime('%Y-%m', Expenses.Date).label('month'),
+            func.date_format(Expenses.Date, '%Y-%m').label('month'),
             func.sum(Expenses.Amount).label('total')
         ).filter(
             Expenses.Category == category_name
@@ -320,6 +320,17 @@ def get_spending_trends():
             
             if not found:
                 trends.append({'date': month, category_name: float(total)})
+    
+    # Sort by date
+    trends.sort(key=lambda x: x['date'])
+    
+    # Get all categories
+    categories = [c[0] or "Uncategorized" for c in db.session.query(Expenses.Category).distinct()]
+    
+    return jsonify({
+        'trends': trends,
+        'categories': categories
+    })
     
     # Sort by date
     trends.sort(key=lambda x: x['date'])
