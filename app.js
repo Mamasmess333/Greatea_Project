@@ -1,5 +1,5 @@
 const API = "http://127.0.0.1:5000";
-let inventoryChart = null, expenseChart = null, trendChart = null;
+let inventoryChart = null, expenseChart = null, trendChart = null, predictionChart = null, supplierChart = null;
 
 window.addEventListener("DOMContentLoaded", () => {
   // Load basic data
@@ -18,6 +18,11 @@ window.addEventListener("DOMContentLoaded", () => {
   loadStockAlerts();
   loadSpendingTrends();
   
+  // Load new advanced data
+  predictInventoryNeeds();
+  analyzeSupplierPerformance();
+  analyzeExpenseTrends();
+  
   // Populate dropdowns
   populateDropdowns();
   
@@ -33,7 +38,24 @@ window.addEventListener("DOMContentLoaded", () => {
   
   // Set today's date as default for date inputs
   setDefaultDates();
+  
+  // Update calendar display with the correct current date
+  updateCalendarDisplay();
 });
+
+function updateCalendarDisplay() {
+  const calendarBadge = document.getElementById("current-date-badge");
+  if (calendarBadge) {
+    const options = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    const today = new Date();
+    calendarBadge.innerHTML = `<i class="bi bi-calendar3"></i> ${today.toLocaleDateString('en-US', options)}`;
+  }
+}
 
 function setDefaultDates() {
   const today = new Date().toISOString().split('T')[0];
@@ -182,6 +204,7 @@ function handleAddSupply(e) {
     loadSupplies();
     populateDropdowns();
     updateStats();
+    predictInventoryNeeds(); // Update predictions after adding supply
   });
 }
 
@@ -194,6 +217,7 @@ function handleAddSupplier(e) {
   }, "supplier-form", () => {
     loadSuppliers();
     populateDropdowns();
+    analyzeSupplierPerformance(); // Update supplier analysis after adding supplier
   });
 }
 
@@ -207,6 +231,7 @@ function handleAddExpense(e) {
     loadExpenses();
     loadSpendingTrends();
     loadDashboardSummary();
+    analyzeExpenseTrends(); // Update expense trend analysis after adding expense
   });
 }
 
@@ -222,6 +247,7 @@ function handleAddUsage(e) {
     loadStockAlerts();
     loadSupplies();
     loadStoreStock();
+    predictInventoryNeeds(); // Update predictions after adding usage
   });
 }
 
@@ -237,6 +263,7 @@ function handleAddOrder(e) {
     loadSupplyOrders();
     loadSupplies();
     loadExpenses();
+    analyzeSupplierPerformance(); // Update supplier analysis after adding order
   });
 }
 
@@ -249,6 +276,7 @@ function handleAddStock(e) {
   }, "stock-form", () => {
     loadStoreStock();
     loadStockAlerts();
+    predictInventoryNeeds(); // Update predictions after updating stock
   });
 }
 
@@ -277,6 +305,7 @@ function handleAddPurchase(e) {
     loadMarketPurchases();
     loadExpenses();
     loadSpendingTrends();
+    analyzeExpenseTrends(); // Update expense trend analysis after adding purchase
   });
 }
 
@@ -666,4 +695,696 @@ function renderChart(canvasId, labels, data, title, chartType = 'bar', backgroun
   
   if (window[canvasId + 'Chart']) window[canvasId + 'Chart'].destroy();
   window[canvasId + 'Chart'] = new Chart(ctx, chartConfig);
+}
+
+// ----- NEW ADVANCED FUNCTIONS -----
+
+// Predict inventory needs based on historical usage data
+function predictInventoryNeeds() {
+  fetch(`${API}/usage`)
+    .then(res => res.json())
+    .then(data => {
+      const usageRecords = Array.isArray(data) ? data : (data.items || []);
+      if (usageRecords.length === 0) {
+        const container = document.getElementById("prediction-results");
+        if (container) {
+          container.innerHTML = `<div class="alert alert-warning">Not enough usage data for predictions. Please record more usage.</div>`;
+        }
+        return;
+      }
+      
+      // Group usage by Supply_ID
+      const usageBySupply = usageRecords.reduce((acc, record) => {
+        const supplyId = record.Supply_ID;
+        if (!acc[supplyId]) {
+          acc[supplyId] = [];
+        }
+        acc[supplyId].push({
+          date: new Date(record.Date),
+          quantity: record.Quantity_Used || 0,
+          supply_name: record.Supply_Name || `ID: ${supplyId}`
+        });
+        return acc;
+      }, {});
+      
+      // Calculate average daily usage and predict needs for next 30 days
+      const predictions = [];
+      let processedSupplies = 0;
+      const totalSupplies = Object.keys(usageBySupply).length;
+      
+      Object.keys(usageBySupply).forEach(supplyId => {
+        const usageData = usageBySupply[supplyId];
+        
+        // Sort by date
+        usageData.sort((a, b) => a.date - b.date);
+        
+        // Calculate date range
+        const firstDate = usageData[0].date;
+        const lastDate = usageData[usageData.length - 1].date;
+        const daysDifference = Math.max(1, Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24)));
+        
+        // Calculate total usage
+        const totalUsage = usageData.reduce((sum, record) => sum + record.quantity, 0);
+        
+        // Calculate average daily usage
+        const avgDailyUsage = totalUsage / daysDifference;
+        
+        // Get current stock
+        fetch(`${API}/stock?supply_id=${supplyId}`)
+          .then(res => res.json())
+          .then(stockData => {
+            const items = Array.isArray(stockData) ? stockData : (stockData.items || []);
+            const currentStock = items.length > 0 ? (items[0].Quantity_Available || 0) : 0;
+            
+            // Calculate days until reorder needed (assuming reorder point is 30% of current stock)
+            const reorderPoint = currentStock * 0.3;
+            const daysUntilReorder = avgDailyUsage > 0 ? 
+              Math.floor((currentStock - reorderPoint) / avgDailyUsage) : 
+              999; // If no usage, set to a high number
+            
+            // Predict needs for next 30 days
+            const predictedNeed = avgDailyUsage * 30;
+            
+            predictions.push({
+              supply_id: parseInt(supplyId),
+              supply_name: usageData[0].supply_name,
+              avg_daily_usage: avgDailyUsage,
+              current_stock: currentStock,
+              days_until_reorder: daysUntilReorder,
+              predicted_30day_need: predictedNeed,
+              reorder_status: daysUntilReorder <= 7 ? 'Critical' : 
+                             daysUntilReorder <= 14 ? 'Warning' : 'Good'
+            });
+            
+            processedSupplies++;
+            
+            // When all supplies have been processed, display predictions
+            if (processedSupplies === totalSupplies) {
+              displayPredictions(predictions);
+              renderPredictionChart(predictions);
+            }
+          })
+          .catch(err => {
+            console.error(`Error fetching stock data for supply ID ${supplyId}:`, err);
+            processedSupplies++;
+            
+            // If all supplies have been processed despite errors, display predictions
+            if (processedSupplies === totalSupplies) {
+              displayPredictions(predictions);
+              renderPredictionChart(predictions);
+            }
+          });
+      });
+    })
+    .catch(err => {
+      console.error("Error fetching usage data:", err);
+      const container = document.getElementById("prediction-results");
+      if (container) {
+        container.innerHTML = `<div class="alert alert-danger">Error fetching data: ${err.message}</div>`;
+      }
+    });
+}
+
+// Display prediction results in a table format
+function displayPredictions(predictions) {
+  const container = document.getElementById("prediction-results");
+  if (!container) return;
+  
+  // Sort predictions by reorder status (Critical first, then Warning, then Good)
+  predictions.sort((a, b) => {
+    const statusPriority = { 'Critical': 0, 'Warning': 1, 'Good': 2 };
+    return statusPriority[a.reorder_status] - statusPriority[b.reorder_status];
+  });
+  
+  let html = `
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>Supply Name</th>
+            <th>Current Stock</th>
+            <th>Avg. Daily Usage</th>
+            <th>Days Until Reorder</th>
+            <th>30-Day Need</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>`;
+  
+  predictions.forEach(item => {
+    const statusClass = 
+      item.reorder_status === "Critical" ? "bg-danger text-white" : 
+      item.reorder_status === "Warning" ? "bg-warning" : "bg-success text-white";
+    
+    html += `
+      <tr>
+        <td>${item.supply_name}</td>
+        <td>${item.current_stock.toFixed(2)}</td>
+        <td>${item.avg_daily_usage.toFixed(2)}/day</td>
+        <td>${item.days_until_reorder}</td>
+        <td>${item.predicted_30day_need.toFixed(2)}</td>
+        <td><span class="badge ${statusClass}">${item.reorder_status}</span></td>
+        <td>
+          <button class="btn btn-sm btn-primary create-restock-btn" 
+            data-supply-id="${item.supply_id}" 
+            data-quantity="${Math.ceil(item.predicted_30day_need)}"
+            onclick="createRestockRequest(${item.supply_id}, ${Math.ceil(item.predicted_30day_need)})">
+            Create Restock
+          </button>
+        </td>
+      </tr>`;
+  });
+  
+  html += `</tbody></table></div>`;
+  
+  if (predictions.length === 0) {
+    html = `<div class="alert alert-info">No prediction data available.</div>`;
+  }
+  
+  container.innerHTML = html;
+}
+
+// Render a chart showing inventory prediction data
+function renderPredictionChart(predictions) {
+  const ctx = document.getElementById("prediction-chart");
+  if (!ctx) return;
+  
+  // Sort predictions by days until reorder (lowest first)
+  const sortedData = [...predictions].sort((a, b) => a.days_until_reorder - b.days_until_reorder).slice(0, 10);
+  
+  // Prepare chart data
+  const labels = sortedData.map(item => item.supply_name);
+  const currentStock = sortedData.map(item => item.current_stock);
+  const predictedNeed = sortedData.map(item => item.predicted_30day_need);
+  
+  // Create chart
+  if (predictionChart) predictionChart.destroy();
+  
+  predictionChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Current Stock',
+          data: currentStock,
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Predicted 30-Day Need',
+          data: predictedNeed,
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Quantity' }
+        },
+        x: {
+          title: { display: true, text: 'Supply Items' }
+        }
+      },
+      plugins: {
+        title: { display: true, text: 'Inventory Prediction: Current Stock vs. 30-Day Need' },
+        legend: { position: 'top' }
+      }
+    }
+  });
+}
+
+// Create a restock request based on prediction
+function createRestockRequest(supplyId, quantity) {
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Create payload for restock request
+  const payload = {
+    Date: today,
+    Supply_ID: supplyId,
+    Quantity_Requested: quantity,
+    Request_Type: "Transfer from Inventory"
+  };
+  
+  // Send POST request to create restock request
+  fetch(`${API}/restocks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  })
+  .then(response => {
+    if (!response.ok) {
+      return response.json().then(err => {
+        throw new Error(err.error || `HTTP error! Status: ${response.status}`);
+      });
+    }
+    return response.json();
+  })
+  .then(() => {
+    showToast("Success", "Restock request created successfully.");
+    loadRestockRequests();
+    loadDashboardSummary();
+    predictInventoryNeeds(); // Refresh predictions
+  })
+  .catch(err => {
+    console.error("Error creating restock request:", err);
+    showToast("Error", err.message, "error");
+  });
+}
+
+// Supplier Performance Analysis
+function analyzeSupplierPerformance() {
+  fetch(`${API}/orders`)
+    .then(res => res.json())
+    .then(data => {
+      const orders = Array.isArray(data) ? data : (data.items || []);
+      if (orders.length === 0) {
+        const container = document.getElementById("supplier-analysis");
+        if (container) {
+          container.innerHTML = `<div class="alert alert-warning">Not enough order data for analysis. Please record more orders.</div>`;
+        }
+        return;
+      }
+      
+      // Group orders by supplier
+      const ordersBySupplier = orders.reduce((acc, order) => {
+        const supplierId = order.Supplier_ID;
+        const supplierName = order.Supplier_Name || `ID: ${supplierId}`;
+        
+        if (!acc[supplierId]) {
+          acc[supplierId] = {
+            supplier_id: supplierId,
+            supplier_name: supplierName,
+            total_orders: 0,
+            total_cost: 0,
+            items_ordered: 0,
+            avg_cost_per_item: 0,
+            order_dates: []
+          };
+        }
+        
+        acc[supplierId].total_orders++;
+        acc[supplierId].total_cost += (order.Total_Cost || 0);
+        acc[supplierId].items_ordered += (order.Quantity_Received || 0);
+        if (order.Date) acc[supplierId].order_dates.push(new Date(order.Date));
+        
+        return acc;
+      }, {});
+      
+      // Calculate additional metrics
+      const supplierData = Object.values(ordersBySupplier).map(supplier => {
+        // Calculate average cost per item
+        supplier.avg_cost_per_item = supplier.items_ordered > 0 ? 
+          supplier.total_cost / supplier.items_ordered : 0;
+        
+        // Calculate average time between orders (in days)
+        if (supplier.order_dates.length > 1) {
+          supplier.order_dates.sort((a, b) => a - b);
+          let totalDays = 0;
+          for (let i = 1; i < supplier.order_dates.length; i++) {
+            const daysDiff = Math.ceil((supplier.order_dates[i] - supplier.order_dates[i-1]) / (1000 * 60 * 60 * 24));
+            totalDays += daysDiff;
+          }
+          supplier.avg_days_between_orders = totalDays / (supplier.order_dates.length - 1);
+        } else {
+          supplier.avg_days_between_orders = 0;
+        }
+        
+        // Calculate days since last order
+        if (supplier.order_dates.length > 0) {
+          const lastOrderDate = new Date(Math.max(...supplier.order_dates));
+          const today = new Date();
+          supplier.days_since_last_order = Math.ceil((today - lastOrderDate) / (1000 * 60 * 60 * 24));
+        } else {
+          supplier.days_since_last_order = 0;
+        }
+        
+        return supplier;
+      });
+      
+      // Display supplier analysis
+      displaySupplierAnalysis(supplierData);
+      renderSupplierChart(supplierData);
+    })
+    .catch(err => {
+      console.error("Error fetching order data:", err);
+      const container = document.getElementById("supplier-analysis");
+      if (container) {
+        container.innerHTML = `<div class="alert alert-danger">Error fetching data: ${err.message}</div>`;
+      }
+    });
+}
+
+// Display supplier analysis in a table
+function displaySupplierAnalysis(supplierData) {
+  const container = document.getElementById("supplier-analysis");
+  if (!container) return;
+  
+  // Sort suppliers by total cost (highest first)
+  supplierData.sort((a, b) => b.total_cost - a.total_cost);
+  
+  let html = `
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>Supplier</th>
+            <th>Orders</th>
+            <th>Total Cost</th>
+            <th>Items Ordered</th>
+            <th>Avg. Cost/Item</th>
+            <th>Avg. Days Between Orders</th>
+            <th>Days Since Last Order</th>
+          </tr>
+        </thead>
+        <tbody>`;
+  
+  supplierData.forEach(supplier => {
+    html += `
+      <tr>
+        <td>${supplier.supplier_name}</td>
+        <td>${supplier.total_orders}</td>
+        <td>${supplier.total_cost.toFixed(2)}</td>
+        <td>${supplier.items_ordered}</td>
+        <td>${supplier.avg_cost_per_item.toFixed(2)}</td>
+        <td>${supplier.avg_days_between_orders.toFixed(1)}</td>
+        <td>${supplier.days_since_last_order}</td>
+      </tr>`;
+  });
+  
+  html += `</tbody></table></div>`;
+  
+  if (supplierData.length === 0) {
+    html = `<div class="alert alert-info">No supplier data available for analysis.</div>`;
+  }
+  
+  container.innerHTML = html;
+}
+
+// Render chart for supplier analysis
+function renderSupplierChart(supplierData) {
+  const ctx = document.getElementById("supplier-chart");
+  if (!ctx) return;
+  
+  // Sort suppliers by total cost (highest first) and get top 5
+  const sortedData = [...supplierData].sort((a, b) => b.total_cost - a.total_cost).slice(0, 5);
+  
+  // Prepare chart data
+  const labels = sortedData.map(s => s.supplier_name);
+  const totalCosts = sortedData.map(s => s.total_cost);
+  const avgCostPerItem = sortedData.map(s => s.avg_cost_per_item);
+  
+  // Create chart
+  if (supplierChart) supplierChart.destroy();
+  
+  supplierChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Total Cost ($)',
+          data: totalCosts,
+          backgroundColor: 'rgba(54, 162, 235, 0.6)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Avg. Cost per Item ($)',
+          data: avgCostPerItem,
+          backgroundColor: 'rgba(255, 99, 132, 0.6)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1,
+          type: 'line',
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          type: 'linear',
+          position: 'left',
+          beginAtZero: true,
+          title: { display: true, text: 'Total Cost ($)' }
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          beginAtZero: true,
+          title: { display: true, text: 'Avg. Cost per Item ($)' },
+          grid: { drawOnChartArea: false }
+        },
+        x: {
+          title: { display: true, text: 'Suppliers' }
+        }
+      },
+      plugins: {
+        title: { display: true, text: 'Top 5 Suppliers by Cost' },
+        legend: { position: 'top' }
+      }
+    }
+  });
+}
+
+// Analyze expense trends over time
+function analyzeExpenseTrends() {
+  // Fetch both expenses and purchases, which contribute to total expenses
+  Promise.all([
+    fetch(`${API}/expenses`).then(res => res.json()),
+    fetch(`${API}/purchases`).then(res => res.json())
+  ])
+  .then(([expensesData, purchasesData]) => {
+    const expenses = Array.isArray(expensesData) ? expensesData : (expensesData.items || []);
+    const purchases = Array.isArray(purchasesData) ? purchasesData : (purchasesData.items || []);
+    
+    if (expenses.length === 0 && purchases.length === 0) {
+      const container = document.getElementById("expense-analysis");
+      if (container) {
+        container.innerHTML = `<div class="alert alert-warning">Not enough expense data for analysis. Please record more expenses.</div>`;
+      }
+      return;
+    }
+    
+    // Combine expenses and purchases
+    const allExpenses = [
+      ...expenses.map(e => ({
+        date: new Date(e.Date),
+        category: e.Category || 'Uncategorized',
+        amount: e.Amount || 0,
+        type: 'expense'
+      })),
+      ...purchases.map(p => ({
+        date: new Date(p.Date),
+        category: p.Category || 'Uncategorized',
+        amount: p.Cost || 0,
+        type: 'purchase'
+      }))
+    ];
+    
+    // Sort by date
+    allExpenses.sort((a, b) => a.date - b.date);
+    
+    // Group expenses by month and category
+    const monthlyExpensesByCategory = {};
+    const categories = new Set();
+    
+    allExpenses.forEach(expense => {
+      const yearMonth = `${expense.date.getFullYear()}-${(expense.date.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (!monthlyExpensesByCategory[yearMonth]) {
+        monthlyExpensesByCategory[yearMonth] = {};
+      }
+      
+      const category = expense.category;
+      categories.add(category);
+      
+      if (!monthlyExpensesByCategory[yearMonth][category]) {
+        monthlyExpensesByCategory[yearMonth][category] = 0;
+      }
+      
+      monthlyExpensesByCategory[yearMonth][category] += expense.amount;
+    });
+    
+    // Convert to array format for chart
+    const monthlyExpensesData = Object.keys(monthlyExpensesByCategory).map(yearMonth => {
+      const monthData = { month: yearMonth };
+      categories.forEach(category => {
+        monthData[category] = monthlyExpensesByCategory[yearMonth][category] || 0;
+      });
+      return monthData;
+    });
+    
+    // Calculate monthly totals and category totals
+    const monthlyTotals = {};
+    const categoryTotals = {};
+    
+    monthlyExpensesData.forEach(month => {
+      const total = Array.from(categories).reduce((sum, category) => sum + (month[category] || 0), 0);
+      monthlyTotals[month.month] = total;
+      
+      categories.forEach(category => {
+        if (!categoryTotals[category]) {
+          categoryTotals[category] = 0;
+        }
+        categoryTotals[category] += (month[category] || 0);
+      });
+    });
+    
+    // Display expense analysis
+    displayExpenseAnalysis(monthlyExpensesData, monthlyTotals, categoryTotals);
+  })
+  .catch(err => {
+    console.error("Error fetching expense data:", err);
+    const container = document.getElementById("expense-analysis");
+    if (container) {
+      container.innerHTML = `<div class="alert alert-danger">Error fetching data: ${err.message}</div>`;
+    }
+  });
+}
+
+// Display expense analysis with insights
+function displayExpenseAnalysis(monthlyData, monthlyTotals, categoryTotals) {
+  const container = document.getElementById("expense-analysis");
+  if (!container) return;
+  
+  // Sort categories by total amount
+  const sortedCategories = Object.keys(categoryTotals).sort((a, b) => 
+    categoryTotals[b] - categoryTotals[a]
+  );
+  
+  // Get top spending categories
+  const topCategories = sortedCategories.slice(0, 3);
+  
+  // Calculate total expenses
+  const totalExpenses = Object.values(categoryTotals).reduce((sum, amount) => sum + amount, 0);
+  
+  // Calculate month-over-month change
+  const months = Object.keys(monthlyTotals).sort();
+  let monthOverMonthChange = 0;
+  let percentChange = 0;
+  
+  if (months.length >= 2) {
+    const currentMonth = months[months.length - 1];
+    const previousMonth = months[months.length - 2];
+    const currentTotal = monthlyTotals[currentMonth] || 0;
+    const previousTotal = monthlyTotals[previousMonth] || 0;
+    
+    monthOverMonthChange = currentTotal - previousTotal;
+    percentChange = previousTotal > 0 ? (monthOverMonthChange / previousTotal) * 100 : 0;
+  }
+  
+  // Create a dashboard with insights
+  let html = `
+    <div class="row mb-4">
+      <div class="col-md-4">
+        <div class="card bg-primary text-white">
+          <div class="card-body text-center">
+            <h3>${totalExpenses.toFixed(2)}</h3>
+            <p class="mb-0">Total Expenses</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card ${monthOverMonthChange >= 0 ? 'bg-danger' : 'bg-success'} text-white">
+          <div class="card-body text-center">
+            <h3>${monthOverMonthChange >= 0 ? '+' : ''}${Math.abs(monthOverMonthChange).toFixed(2)}</h3>
+            <p class="mb-0">Month-over-Month Change</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card ${percentChange >= 0 ? 'bg-warning' : 'bg-info'} text-white">
+          <div class="card-body text-center">
+            <h3>${percentChange >= 0 ? '+' : ''}${Math.abs(percentChange).toFixed(2)}%</h3>
+            <p class="mb-0">Month-over-Month % Change</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card mb-4">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">Top Spending Categories</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">`;
+  
+  // Display top categories with their percentage of total
+  topCategories.forEach(category => {
+    const amount = categoryTotals[category] || 0;
+    const percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
+    
+    html += `
+      <div class="col-md-4">
+        <div class="card border-primary mb-3">
+          <div class="card-body text-center">
+            <h5 class="card-title">${category}</h5>
+            <h6 class="card-subtitle mb-2 text-muted">${amount.toFixed(2)}</h6>
+            <div class="progress">
+              <div class="progress-bar" role="progressbar" style="width: ${percentage}%" 
+                aria-valuenow="${percentage}" aria-valuemin="0" aria-valuemax="100">
+                ${percentage.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  });
+  
+  html += `
+        </div>
+      </div>
+    </div>`;
+  
+  // Monthly expense breakdown
+  html += `
+    <div class="card">
+      <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">Monthly Expense Breakdown</h5>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover">
+            <thead class="table-dark">
+              <tr>
+                <th>Month</th>
+                ${sortedCategories.map(category => `<th>${category}</th>`).join('')}
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>`;
+  
+  // Sort months in chronological order
+  const sortedMonths = monthlyData.sort((a, b) => a.month.localeCompare(b.month));
+  
+  sortedMonths.forEach(month => {
+    const monthTotal = monthlyTotals[month.month] || 0;
+    
+    html += `
+      <tr>
+        <td>${month.month}</td>
+        ${sortedCategories.map(category => `<td>${(month[category] || 0).toFixed(2)}</td>`).join('')}
+        <td><strong>${monthTotal.toFixed(2)}</strong></td>
+      </tr>`;
+  });
+  
+  html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  
+  container.innerHTML = html;
 }
