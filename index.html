@@ -98,6 +98,9 @@
           <li class="nav-item">
             <a class="nav-link" href="#analytics">Analytics</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#advanced">Advanced</a>
+          </li>
         </ul>
       </div>
     </div>
@@ -110,8 +113,8 @@
         <h2 class="section-title">Dashboard Overview</h2>
       </div>
       <div class="col-md-4 text-end">
-        <span class="badge bg-primary rounded-pill fs-6">
-          <i class="bi bi-calendar3"></i> April 15, 2025
+        <span id="current-date-badge" class="badge bg-primary rounded-pill fs-6">
+          <i class="bi bi-calendar3"></i> Loading date...
         </span>
       </div>
     </div>
@@ -176,10 +179,15 @@
           <i class="bi bi-graph-up-arrow me-2"></i>Analytics
         </button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced-content" type="button" role="tab" aria-selected="false">
+          <i class="bi bi-lightning-charge me-2"></i>Advanced
+        </button>
+      </li>
     </ul>
 
     <div class="tab-content" id="myTabContent">
-      <!-- Supplies Tab -->
+      <!-- Supplies Tab Content -->
       <div class="tab-pane fade show active" id="supplies-content" role="tabpanel">
         <div class="row">
           <div class="col-md-8">
@@ -225,7 +233,7 @@
         </div>
       </div>
 
-      <!-- Suppliers Tab -->
+      <!-- Suppliers Tab Content -->
       <div class="tab-pane fade" id="suppliers-content" role="tabpanel">
         <div class="row">
           <div class="col-md-8">
@@ -263,7 +271,7 @@
         </div>
       </div>
 
-      <!-- Usage Tab -->
+      <!-- Usage Tab Content -->
       <div class="tab-pane fade" id="usage-content" role="tabpanel">
         <div class="row">
           <div class="col-md-8">
@@ -307,7 +315,7 @@
         </div>
       </div>
 
-      <!-- Expenses Tab -->
+      <!-- Expenses Tab Content -->
       <div class="tab-pane fade" id="expenses-content" role="tabpanel">
         <div class="row">
           <div class="col-md-8">
@@ -345,7 +353,7 @@
         </div>
       </div>
 
-      <!-- Orders Tab -->
+      <!-- Orders Tab Content -->
       <div class="tab-pane fade" id="orders-content" role="tabpanel">
         <div class="row">
           <div class="col-lg-12 mb-4">
@@ -552,7 +560,7 @@
         </div>
       </div>
       
-      <!-- Analytics Tab -->
+      <!-- Analytics Tab Content -->
       <div class="tab-pane fade" id="analytics-content" role="tabpanel">
         <div class="row">
           <div class="col-lg-12 mb-4">
@@ -607,6 +615,125 @@
                   <h4><i class="bi bi-graph-up"></i> Spending Trends</h4>
                   <div class="chart-container" style="height: 400px;">
                     <canvas id="spending-trends-chart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Advanced Tab Content (NEW) -->
+      <div class="tab-pane fade" id="advanced-content" role="tabpanel">
+        <div class="row">
+          <div class="col-lg-12 mb-4">
+            <ul class="nav nav-pills" id="advancedSubTab" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="prediction-subtab" data-bs-toggle="pill" data-bs-target="#prediction-subcontent" type="button" role="tab">
+                  <i class="bi bi-lightbulb"></i> Inventory Prediction
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="supplier-analysis-subtab" data-bs-toggle="pill" data-bs-target="#supplier-analysis-subcontent" type="button" role="tab">
+                  <i class="bi bi-bar-chart-line"></i> Supplier Analysis
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="expense-analysis-subtab" data-bs-toggle="pill" data-bs-target="#expense-analysis-subcontent" type="button" role="tab">
+                  <i class="bi bi-cash-stack"></i> Expense Analysis
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div class="tab-content" id="advancedSubTabContent">
+            <!-- Inventory Prediction Sub-Tab -->
+            <div class="tab-pane fade show active" id="prediction-subcontent" role="tabpanel">
+              <div class="row">
+                <div class="col-md-12 mb-4">
+                  <div class="card">
+                    <div class="card-header bg-primary text-white">
+                      <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Smart Inventory Predictions</h5>
+                    </div>
+                    <div class="card-body">
+                      <p class="lead">Based on historical usage data, the system predicts inventory needs for the next 30 days and suggests when to reorder supplies.</p>
+                      
+                      <div class="chart-container mb-4" style="height: 300px;">
+                        <canvas id="prediction-chart"></canvas>
+                      </div>
+                      
+                      <div class="d-flex justify-content-end mb-3">
+                        <button class="btn btn-outline-primary" onclick="predictInventoryNeeds()">
+                          <i class="bi bi-arrow-repeat"></i> Refresh Predictions
+                        </button>
+                      </div>
+                      
+                      <div id="prediction-results">
+                        <div class="spinner-border text-primary" role="status">
+                          <span class="visually-hidden">Loading predictions...</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Supplier Analysis Sub-Tab -->
+            <div class="tab-pane fade" id="supplier-analysis-subcontent" role="tabpanel">
+              <div class="row">
+                <div class="col-md-12 mb-4">
+                  <div class="card">
+                    <div class="card-header bg-success text-white">
+                      <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> Supplier Performance Analysis</h5>
+                    </div>
+                    <div class="card-body">
+                      <p class="lead">Analyze supplier performance, costs, and order patterns to identify the most reliable and cost-effective suppliers.</p>
+
+                      <div class="chart-container mb-4" style="height: 300px;">
+                        <canvas id="supplier-chart"></canvas>
+                      </div>
+                      
+                      <div class="d-flex justify-content-end mb-3">
+                        <button class="btn btn-outline-success" onclick="analyzeSupplierPerformance()">
+                          <i class="bi bi-arrow-repeat"></i> Refresh Analysis
+                        </button>
+                      </div>
+                      
+                      <div id="supplier-analysis">
+                        <div class="spinner-border text-success" role="status">
+                          <span class="visually-hidden">Loading analysis...</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Expense Analysis Sub-Tab -->
+            <div class="tab-pane fade" id="expense-analysis-subcontent" role="tabpanel">
+              <div class="row">
+                <div class="col-md-12 mb-4">
+                  <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                      <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Advanced Expense Analysis</h5>
+                    </div>
+                    <div class="card-body">
+                      <p class="lead">Gain deeper insights into expense patterns, identify spending trends, and optimize your budget allocation.</p>
+                      
+                      <div class="d-flex justify-content-end mb-3">
+                        <button class="btn btn-outline-warning" onclick="analyzeExpenseTrends()">
+                          <i class="bi bi-arrow-repeat"></i> Refresh Analysis
+                        </button>
+                      </div>
+                      
+                      <div id="expense-analysis">
+                        <div class="spinner-border text-warning" role="status">
+                          <span class="visually-hidden">Loading analysis...</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
